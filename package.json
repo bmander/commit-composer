@@ -17,6 +17,18 @@
         "command": "commitcomposer.draftCommitMessage",
         "title": "Draft Commit Message"
       }
+    ],
+    "configuration": [
+      {
+        "title": "Commit Composer",
+        "properties": {
+          "commitcomposer.openaiAPIKey": {
+            "type": "string",
+            "default": "",
+            "description": "OpenAI API Key"
+          }
+        }
+      }
     ]
   },
   "scripts": {
@@ -47,6 +59,7 @@
     "webpack-cli": "^5.0.2"
   },
   "dependencies": {
+    "openai": "^3.2.1",
     "simple-git": "^3.18.0"
   }
 }
