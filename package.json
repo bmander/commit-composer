@@ -14,8 +14,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "commitcomposer.helloWorld",
-        "title": "Hello World"
+        "command": "commitcomposer.draftCommitMessage",
+        "title": "Draft Commit Message"
       }
     ]
   },
