@@ -62,6 +62,81 @@ async function getDiff(): Promise<string | undefined> {
   return await git.diff();
 }
 
+function getApiConfig(): {
+  openaiApiKey: string;
+  modelName: string;
+} {
+  const conf = vscode.workspace.getConfiguration("commitcomposer");
+  const openaiApiKey: string | undefined = conf.get("openaiApiKey");
+  const modelName: string | undefined = conf.get("modelName");
+
+  if (!openaiApiKey) {
+    throw new Error("OpenAI API key not set");
+  }
+  if (!modelName) {
+    throw new Error("OpenAI model name not set");
+  }
+
+  return { openaiApiKey, modelName };
+}
+
+async function createCommitMessageDocument(): Promise<vscode.TextEditor> {
+  const commitMessageDoc = await vscode.workspace.openTextDocument({
+    content: "",
+    language: "plaintext",
+  });
+  return vscode.window.showTextDocument(commitMessageDoc, {
+    viewColumn: vscode.ViewColumn.Beside,
+    preserveFocus: true,
+    preview: false,
+  });
+}
+
+async function fetchChatCompletionResponses(
+  apiConfig: { openaiApiKey: string; modelName: string },
+  diff: string
+): Promise<NodeJS.ReadableStream | undefined> {
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiConfig.openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: apiConfig.modelName,
+        messages: [
+          { role: "system", content: SYSTEM_MESSAGE },
+          { role: "user", content: diff },
+        ],
+        stream: true,
+      }),
+    });
+
+    return response.body?.setEncoding("utf-8") ?? undefined;
+  } catch (error) {
+    vscode.window.showErrorMessage(
+      `Error fetching chat completion responses: ${error}`
+    );
+    return undefined;
+  }
+}
+
+function parseStreamingChatCompletionResponses(
+  chunk: string
+): ChatCompletionResponse[] {
+  // parse chunk, which is a server-sent event starting with
+  // "data: " and ending with "\n\n"
+  const lines = chunk.toString().split("\n\n");
+
+  const chatCompletionResponses = lines
+    .map((line) => line.replace(/^data: /, "").trim()) // Remove the "data: " prefix
+    .filter((line) => line !== "" && line !== "[DONE]") // Remove empty lines and "[DONE]"
+    .map((line) => JSON.parse(line) as ChatCompletionResponse); // Parse the JSON string
+
+  return chatCompletionResponses;
+}
+
 async function draftCommitMessage() {
   const diff = await getDiff();
   if (!diff) {
@@ -71,72 +146,36 @@ async function draftCommitMessage() {
     return;
   }
 
-  const conf = vscode.workspace.getConfiguration("commitcomposer");
-  const openaiApiKey: string | undefined = conf.get("openaiApiKey");
-  if (!openaiApiKey) {
-    vscode.window.showErrorMessage(`OpenAI API key not set`);
-
+  let apiConfig: { openaiApiKey: string; modelName: string };
+  try {
+    apiConfig = getApiConfig();
+  } catch (error) {
+    vscode.window.showErrorMessage(`Error getting API config: ${error}`);
     return;
   }
 
-  const modelName: string | undefined = conf.get("modelName");
+  const docEditor = await createCommitMessageDocument();
 
-  // create a blank new next window
-  const commitMessageDoc = await vscode.workspace.openTextDocument({
-    content: "",
-    language: "plaintext",
-  });
-  const docEditor = await vscode.window.showTextDocument(commitMessageDoc, {
-    viewColumn: vscode.ViewColumn.Beside,
-    preserveFocus: true,
-    preview: false,
-  });
+  const reader = await fetchChatCompletionResponses(apiConfig, diff);
 
-  try {
-    const response = fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: modelName,
-        messages: [
-          { role: "system", content: SYSTEM_MESSAGE },
-          { role: "user", content: diff },
-        ],
-        stream: true,
-      }),
-    });
+  if (!reader) {
+    vscode.window.showErrorMessage(`Error getting response body`);
+    return;
+  }
 
-    const reader = (await response)?.body?.setEncoding("utf-8");
+  for await (const chunk of reader) {
+    const chatCompletionResponses = parseStreamingChatCompletionResponses(
+      chunk.toString()
+    );
 
-    if (!reader) {
-      vscode.window.showErrorMessage(`Error getting response body`);
-      return;
-    }
-
-    for await (const chunk of reader) {
-      // parse chunk, which is a server-sent event starting with
-      // "data: " and ending with "\n\n"
-      const lines = chunk.toString().split("\n\n");
-
-      const chatCompletionResponses = lines
-        .map((line) => line.replace(/^data: /, "").trim()) // Remove the "data: " prefix
-        .filter((line) => line !== "" && line !== "[DONE]") // Remove empty lines and "[DONE]"
-        .map((line) => JSON.parse(line) as ChatCompletionResponse); // Parse the JSON string
-
-      for (const chatCompletionResponse of chatCompletionResponses) {
-        const word = chatCompletionResponse.choices[0].delta.content;
-        if (!word) {
-          continue;
-        }
-
-        appendToLastLine(docEditor, word);
+    for (const chatCompletionResponse of chatCompletionResponses) {
+      const word = chatCompletionResponse.choices[0].delta.content;
+      if (!word) {
+        continue;
       }
+
+      appendToLastLine(docEditor, word);
     }
-  } catch (error) {
-    vscode.window.showErrorMessage(`Error generating commit message: ${error}`);
   }
 }
 
