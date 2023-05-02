@@ -6,10 +6,12 @@ import fetch from "node-fetch";
 const API_URL = "https://api.openai.com/v1/chat/completions";
 const SYSTEM_MESSAGE = `You are a commit message generator. You are given a 
 diff of changes to a git repository. You must generate a commit message that 
-describes the changes. The commit message must contain a subject line and, if 
-the commit is not trivial, a body. The subject line should be 50 characters or 
-less, and begin with an imperative statement, as if giving a command. The body 
-should contain a description of the changes.`;
+describes the changes. The commit message must contain a subject line and a body
+if the commit is not trivial. The subject line should be 50 characters or 
+less, and begin with an imperative statement as if giving a command. The body 
+should contain a description of the changes. Neither the subject line nor the
+body should be prefixed with the name of the section; instead the text of the
+commit should be ready to submit to git as-is.`;
 const GIT_BODY_MAX_LENGTH = 72;
 
 interface Message {
