@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { simpleGit, SimpleGit, CleanOptions } from 'simple-git';
 import fetch from 'node-fetch';
+import internal = require('stream');
 
 const API_URL = "https://api.openai.com/v1/chat/completions"
 const SYSTEM_MESSAGE = "You are a commit message generator. You are given a diff of changes" +
@@ -8,6 +9,7 @@ const SYSTEM_MESSAGE = "You are a commit message generator. You are given a diff
 	"The commit message must contain a subject line and, if the commit is not trivial, a " +
 	"body. The subject line should be 50 characters or less, and begin with an imperative " +
 	"statement, as if giving a command. The body should contain a description of the changes.";
+const GIT_BODY_MAX_LENGTH = 72;
 
 interface Message {
 	role: string;
@@ -35,7 +37,17 @@ interface ChatCompletionResponse {
 function appendToLastLine(editor: vscode.TextEditor, text: string) {
 	const doc = editor.document;
 	const lastLine = doc.lineAt(doc.lineCount - 1);
-	const end = new vscode.Position(doc.lineCount - 1, lastLine.text.length);
+
+	let cursorRow: number;
+	let cursorCol: number;
+	if (lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH) {
+		cursorRow = doc.lineCount;
+		cursorCol = 0;
+	} else {
+		cursorRow = doc.lineCount - 1;
+		cursorCol = lastLine.text.length;
+	}
+	const end = new vscode.Position(cursorRow, cursorCol);
 
 	editor.edit(editBuilder => {
 		editBuilder.insert(end, text);
