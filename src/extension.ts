@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import * as vscode from "vscode";
-import { simpleGit, SimpleGit, CleanOptions } from "simple-git";
+import { simpleGit, SimpleGit } from "simple-git";
 import fetch from "node-fetch";
-import internal = require("stream");
 
 const API_URL = "https://api.openai.com/v1/chat/completions";
-const SYSTEM_MESSAGE =
-  "You are a commit message generator. You are given a diff of changes" +
-  "to a git repository. You must generate a commit message that describes the changes. " +
-  "The commit message must contain a subject line and, if the commit is not trivial, a " +
-  "body. The subject line should be 50 characters or less, and begin with an imperative " +
-  "statement, as if giving a command. The body should contain a description of the changes.";
+const SYSTEM_MESSAGE = `You are a commit message generator. You are given a 
+diff of changes to a git repository. You must generate a commit message that 
+describes the changes. The commit message must contain a subject line and, if 
+the commit is not trivial, a body. The subject line should be 50 characters or 
+less, and begin with an imperative statement, as if giving a command. The body 
+should contain a description of the changes.`;
 const GIT_BODY_MAX_LENGTH = 72;
 
 interface Message {
@@ -40,16 +39,11 @@ function appendToLastLine(editor: vscode.TextEditor, text: string) {
   const doc = editor.document;
   const lastLine = doc.lineAt(doc.lineCount - 1);
 
-  let cursorRow: number;
-  let cursorCol: number;
-  if (lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH) {
-    cursorRow = doc.lineCount;
-    cursorCol = 0;
-  } else {
-    cursorRow = doc.lineCount - 1;
-    cursorCol = lastLine.text.length;
-  }
-  const end = new vscode.Position(cursorRow, cursorCol);
+  const makeNewLine = lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH;
+  const end = new vscode.Position(
+    makeNewLine ? doc.lineCount : doc.lineCount - 1,
+    makeNewLine ? 0 : lastLine.text.length
+  );
 
   editor.edit((editBuilder) => {
     editBuilder.insert(end, text);
@@ -110,7 +104,7 @@ async function draftCommitMessage() {
       }),
     });
 
-    const reader = (await response).body?.setEncoding("utf-8");
+    const reader = (await response)?.body?.setEncoding("utf-8");
 
     if (!reader) {
       vscode.window.showErrorMessage(`Error getting response body`);
