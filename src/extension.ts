@@ -2,11 +2,13 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { simpleGit, SimpleGit, CleanOptions } from 'simple-git';
-import { cachedDataVersionTag } from 'v8';
-import { fetchInsiderVersions } from '@vscode/test-electron/out/download';
-import { resourceLimits } from 'worker_threads';
-const { Configuration, OpenAIApi } = require("openai");
 import fetch from 'node-fetch';
+
+const SYSTEM_MESSAGE = "You are a commit message generator. You are given a diff of changes" +
+	"to a git repository. You must generate a commit message that describes the changes. " +
+	"The commit message must contain a subject line and, if the commit is not trivial, a " +
+	"body. The subject line should be 50 characters or less, and begin with an imperative " +
+	"statement, as if giving a command. The body should contain a description of the changes.";
 
 interface Message {
 	role: string;
@@ -14,8 +16,8 @@ interface Message {
 }
 
 interface Choice {
+	delta: Message;
 	index: number;
-	message: Message;
 	finish_reason: string;
 }
 
@@ -32,13 +34,18 @@ interface ChatCompletionResponse {
 
 }
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+function appendToLastLine(editor: vscode.TextEditor, text: string) {
+	const doc = editor.document;
+	const lastLine = doc.lineAt(doc.lineCount - 1);
+	const end = new vscode.Position(doc.lineCount - 1, lastLine.text.length);
+
+	editor.edit(editBuilder => {
+		editBuilder.insert(end, text);
+	});
+}
+
 export function activate(context: vscode.ExtensionContext) {
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
 	let disposable = vscode.commands.registerCommand('commitcomposer.draftCommitMessage', async () => {
 		const workspaceRootPath = vscode.workspace.workspaceFolders?.[0].uri.path;
 		const git: SimpleGit = simpleGit(workspaceRootPath);
@@ -52,18 +59,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const diff = await git.diff();
 
-		// open up new tab and fill it with diff
-		const diffDoc = await vscode.workspace.openTextDocument({
-			content: diff,
-			language: 'diff'
-		});
-
-		await vscode.window.showTextDocument(diffDoc, {
-			viewColumn: vscode.ViewColumn.Beside,
-			preserveFocus: true,
-			preview: false
-		});
-
 		// get API key from settings
 		const openaiApiKey: string | undefined = vscode.workspace.getConfiguration('commitcomposer').get('openaiApiKey');
 		if (!openaiApiKey) {
@@ -71,11 +66,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 			return;
 		}
-
-		const configuration = new Configuration({
-			apiKey: openaiApiKey,
-		});
-		const openai = new OpenAIApi(configuration);
 
 		// create a blank new next window
 		const commitMessageDoc = await vscode.workspace.openTextDocument({
@@ -90,94 +80,58 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const API_URL = "https://api.openai.com/v1/chat/completions"
 
-		const generate = async () => {
-			vscode.window.showInformationMessage("Generating commit message...");
+		const generate = async (docEditor: vscode.TextEditor) => {
 
 			try {
-				const response = await fetch(API_URL, {
+				const response = fetch(API_URL, {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 						"Authorization": `Bearer ${openaiApiKey}`
 					},
 					body: JSON.stringify({
-						model: "gpt-3.5-turbo",
+						model: "gpt-4",
 						messages: [
-							{ role: "user", content: "To be or not to be, " },
-						]
+							{ role: "system", content: SYSTEM_MESSAGE },
+							{ role: "user", content: diff },
+						],
+						stream: true
 					})
 				});
 
-				vscode.window.showInformationMessage("Commit message generated!");
+				const reader = (await response).body?.setEncoding("utf-8");
 
-				// check if response is ok
-				if (!response.ok) {
-					vscode.window.showErrorMessage(`Error generating commit message: ${response.statusText}`);
+				if (!reader) {
+					vscode.window.showErrorMessage(`Error getting response body`);
 					return;
 				}
 
-				const data = await response.json() as ChatCompletionResponse;
-				const content = data.choices[0].message.content;
+				for await (const chunk of reader) {
+					// parse chunk, which is a server-sent event starting with
+					// "data: " and ending with "\n\n"
+					const lines = chunk.toString().split("\n\n");
 
-				docEditor.edit(editBuilder => {
-					editBuilder.insert(new vscode.Position(0, 0), content);
-				});
+					const parsedLines = lines
+						.map((line) => line.replace(/^data: /, "").trim()) // Remove the "data: " prefix
+						.filter((line) => line !== "" && line !== "[DONE]") // Remove empty lines and "[DONE]"
+						.map((line) => JSON.parse(line) as ChatCompletionResponse); // Parse the JSON string
+
+					for (const line of parsedLines) {
+						const word = line.choices[0].delta.content;
+						if (!word) {
+							continue;
+						}
+
+						appendToLastLine(docEditor, word);
+					}
+				}
 
 			} catch (error) {
-				vscode.window.showInformationMessage("Error generating commit message!");
 				vscode.window.showErrorMessage(`Error generating commit message: ${error}`);
 			}
 		};
 
-		generate();
-
-
-		// // use OpenAI chat api to generate commit message
-		// try {
-		// 	vscode.window.showInformationMessage(`OpenAI API key set to ${openaiApiKey}`);
-		// 	vscode.window.showInformationMessage("Generating commit message...");
-
-		// 	const chatCompletion = await openai.chatCompletion.create({
-		// 		model: "gpt-4",
-		// 		messages: [
-		// 			{
-		// 				role: "system",
-		// 				content: "You are a helpful assistant. You will receive messages " +
-		// 					"in the format of a diff file created by git. You will respond " +
-		// 					"with a git commit message that obeys call best practices set by " +
-		// 					"the software development community."
-		// 			},
-		// 			{
-		// 				role: "user",
-		// 				content: diff
-		// 			}
-		// 		]
-		// 	});
-
-
-		// 	vscode.window.showInformationMessage("Commit message generated!");
-		// 	vscode.window.showInformationMessage(chatCompletion);
-
-		// 	// show chatCompletion
-		// 	const commitMessage = chatCompletion.messages[1].content;
-		// 	const commitMessageDoc = await vscode.workspace.openTextDocument({
-		// 		content: commitMessage,
-		// 		language: 'plaintext'
-		// 	});
-		// 	await vscode.window.showTextDocument(commitMessageDoc, {
-		// 		viewColumn: vscode.ViewColumn.Beside,
-		// 		preserveFocus: true,
-		// 		preview: false
-		// 	});
-		// } catch (error: any) {
-		// 	if (error.message) {
-		// 		vscode.window.showErrorMessage(error.response.status);
-		// 		vscode.window.showErrorMessage(error.response.data);
-		// 	} else {
-		// 		vscode.window.showErrorMessage(error);
-		// 	}
-		// }
-
+		generate(docEditor);
 
 	});
 
