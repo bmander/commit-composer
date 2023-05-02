@@ -39,11 +39,11 @@ function appendToLastLine(editor: vscode.TextEditor, text: string) {
   const doc = editor.document;
   const lastLine = doc.lineAt(doc.lineCount - 1);
 
-  const makeNewLine = lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH;
-  const end = new vscode.Position(
-    makeNewLine ? doc.lineCount : doc.lineCount - 1,
-    makeNewLine ? 0 : lastLine.text.length
-  );
+  const end = new vscode.Position(doc.lineCount - 1, lastLine.text.length);
+
+  if (lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH) {
+    text = "\n" + text;
+  }
 
   editor.edit((editBuilder) => {
     editBuilder.insert(end, text);
