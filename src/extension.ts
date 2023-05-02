@@ -122,13 +122,13 @@ async function draftCommitMessage() {
       // "data: " and ending with "\n\n"
       const lines = chunk.toString().split("\n\n");
 
-      const parsedLines = lines
+      const chatCompletionResponses = lines
         .map((line) => line.replace(/^data: /, "").trim()) // Remove the "data: " prefix
         .filter((line) => line !== "" && line !== "[DONE]") // Remove empty lines and "[DONE]"
         .map((line) => JSON.parse(line) as ChatCompletionResponse); // Parse the JSON string
 
-      for (const line of parsedLines) {
-        const word = line.choices[0].delta.content;
+      for (const chatCompletionResponse of chatCompletionResponses) {
+        const word = chatCompletionResponse.choices[0].delta.content;
         if (!word) {
           continue;
         }
