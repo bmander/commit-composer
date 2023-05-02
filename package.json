@@ -22,7 +22,7 @@
       {
         "title": "Commit Composer",
         "properties": {
-          "commitcomposer.openaiAPIKey": {
+          "commitcomposer.openaiApiKey": {
             "type": "string",
             "default": "",
             "description": "OpenAI API Key"

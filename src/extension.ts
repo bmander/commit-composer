@@ -36,6 +36,26 @@ export function activate(context: vscode.ExtensionContext) {
 			preview: false
 		});
 
+		// get API key from settings
+		const openaiApiKey: string | undefined = vscode.workspace.getConfiguration('commitcomposer').get('openaiApiKey');
+		if (!openaiApiKey) {
+			vscode.window.showErrorMessage(`OpenAI API key not set`);
+
+			return;
+		}
+
+		const configuration = new Configuration({
+			apiKey: openaiApiKey,
+		});
+		const openai = new OpenAIApi(configuration);
+
+		const completion = await openai.createCompletion({
+			model: "text-davinci-003",
+			prompt: "Hello, World",
+		});
+
+		vscode.window.showInformationMessage(`Hello World from Commit Composer! ${completion.data.choices[0].text}`);
+
 
 	});
 
