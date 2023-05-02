@@ -3,7 +3,6 @@ import { simpleGit, SimpleGit, CleanOptions } from 'simple-git';
 import fetch from 'node-fetch';
 
 const API_URL = "https://api.openai.com/v1/chat/completions"
-const MODEL_NAME = "gpt-4";
 const SYSTEM_MESSAGE = "You are a commit message generator. You are given a diff of changes" +
 	"to a git repository. You must generate a commit message that describes the changes. " +
 	"The commit message must contain a subject line and, if the commit is not trivial, a " +
@@ -58,13 +57,16 @@ export function activate(context: vscode.ExtensionContext) {
 
 		const diff = await git.diff();
 
+		const conf = vscode.workspace.getConfiguration('commitcomposer');
 		// get API key from settings
-		const openaiApiKey: string | undefined = vscode.workspace.getConfiguration('commitcomposer').get('openaiApiKey');
+		const openaiApiKey: string | undefined = conf.get('openaiApiKey');
 		if (!openaiApiKey) {
 			vscode.window.showErrorMessage(`OpenAI API key not set`);
 
 			return;
 		}
+
+		const modelName: string | undefined = conf.get('modelName');
 
 		// create a blank new next window
 		const commitMessageDoc = await vscode.workspace.openTextDocument({
@@ -85,7 +87,7 @@ export function activate(context: vscode.ExtensionContext) {
 					"Authorization": `Bearer ${openaiApiKey}`
 				},
 				body: JSON.stringify({
-					model: MODEL_NAME,
+					model: modelName,
 					messages: [
 						{ role: "system", content: SYSTEM_MESSAGE },
 						{ role: "user", content: diff },
