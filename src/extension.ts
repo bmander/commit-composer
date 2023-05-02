@@ -1,9 +1,9 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { simpleGit, SimpleGit, CleanOptions } from 'simple-git';
 import fetch from 'node-fetch';
 
+const API_URL = "https://api.openai.com/v1/chat/completions"
+const MODEL_NAME = "gpt-4";
 const SYSTEM_MESSAGE = "You are a commit message generator. You are given a diff of changes" +
 	"to a git repository. You must generate a commit message that describes the changes. " +
 	"The commit message must contain a subject line and, if the commit is not trivial, a " +
@@ -31,7 +31,6 @@ interface ChatCompletionResponse {
 		completion_tokens: number;
 		total_tokens: number;
 	}
-
 }
 
 function appendToLastLine(editor: vscode.TextEditor, text: string) {
@@ -78,60 +77,53 @@ export function activate(context: vscode.ExtensionContext) {
 			preview: false
 		});
 
-		const API_URL = "https://api.openai.com/v1/chat/completions"
+		try {
+			const response = fetch(API_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${openaiApiKey}`
+				},
+				body: JSON.stringify({
+					model: MODEL_NAME,
+					messages: [
+						{ role: "system", content: SYSTEM_MESSAGE },
+						{ role: "user", content: diff },
+					],
+					stream: true
+				})
+			});
 
-		const generate = async (docEditor: vscode.TextEditor) => {
+			const reader = (await response).body?.setEncoding("utf-8");
 
-			try {
-				const response = fetch(API_URL, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"Authorization": `Bearer ${openaiApiKey}`
-					},
-					body: JSON.stringify({
-						model: "gpt-4",
-						messages: [
-							{ role: "system", content: SYSTEM_MESSAGE },
-							{ role: "user", content: diff },
-						],
-						stream: true
-					})
-				});
-
-				const reader = (await response).body?.setEncoding("utf-8");
-
-				if (!reader) {
-					vscode.window.showErrorMessage(`Error getting response body`);
-					return;
-				}
-
-				for await (const chunk of reader) {
-					// parse chunk, which is a server-sent event starting with
-					// "data: " and ending with "\n\n"
-					const lines = chunk.toString().split("\n\n");
-
-					const parsedLines = lines
-						.map((line) => line.replace(/^data: /, "").trim()) // Remove the "data: " prefix
-						.filter((line) => line !== "" && line !== "[DONE]") // Remove empty lines and "[DONE]"
-						.map((line) => JSON.parse(line) as ChatCompletionResponse); // Parse the JSON string
-
-					for (const line of parsedLines) {
-						const word = line.choices[0].delta.content;
-						if (!word) {
-							continue;
-						}
-
-						appendToLastLine(docEditor, word);
-					}
-				}
-
-			} catch (error) {
-				vscode.window.showErrorMessage(`Error generating commit message: ${error}`);
+			if (!reader) {
+				vscode.window.showErrorMessage(`Error getting response body`);
+				return;
 			}
-		};
 
-		generate(docEditor);
+			for await (const chunk of reader) {
+				// parse chunk, which is a server-sent event starting with
+				// "data: " and ending with "\n\n"
+				const lines = chunk.toString().split("\n\n");
+
+				const parsedLines = lines
+					.map((line) => line.replace(/^data: /, "").trim()) // Remove the "data: " prefix
+					.filter((line) => line !== "" && line !== "[DONE]") // Remove empty lines and "[DONE]"
+					.map((line) => JSON.parse(line) as ChatCompletionResponse); // Parse the JSON string
+
+				for (const line of parsedLines) {
+					const word = line.choices[0].delta.content;
+					if (!word) {
+						continue;
+					}
+
+					appendToLastLine(docEditor, word);
+				}
+			}
+
+		} catch (error) {
+			vscode.window.showErrorMessage(`Error generating commit message: ${error}`);
+		}
 
 	});
 
