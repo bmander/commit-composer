@@ -59,6 +59,7 @@
     "webpack-cli": "^5.0.2"
   },
   "dependencies": {
+    "node-fetch": "^3.3.1",
     "openai": "^3.2.1",
     "simple-git": "^3.18.0"
   }
