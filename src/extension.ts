@@ -50,23 +50,28 @@ function appendToLastLine(editor: vscode.TextEditor, text: string) {
   });
 }
 
-async function draftCommitMessage() {
+async function getDiff(): Promise<string | undefined> {
   const workspaceRootPath = vscode.workspace.workspaceFolders?.[0].uri.path;
   const git: SimpleGit = simpleGit(workspaceRootPath);
 
   const isRepo = await git.checkIsRepo();
   if (!isRepo) {
+    return undefined;
+  }
+
+  return await git.diff();
+}
+
+async function draftCommitMessage() {
+  const diff = await getDiff();
+  if (!diff) {
     vscode.window.showErrorMessage(
       `Current working directory is not a git repository`
     );
-
     return;
   }
 
-  const diff = await git.diff();
-
   const conf = vscode.workspace.getConfiguration("commitcomposer");
-  // get API key from settings
   const openaiApiKey: string | undefined = conf.get("openaiApiKey");
   if (!openaiApiKey) {
     vscode.window.showErrorMessage(`OpenAI API key not set`);
