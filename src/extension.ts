@@ -44,7 +44,7 @@ function appendToLastLine(editor: vscode.TextEditor, text: string) {
   const end = new vscode.Position(doc.lineCount - 1, lastLine.text.length);
 
   if (lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH) {
-    text = "\n" + text;
+    text = "\n" + text.trimStart();
   }
 
   editor.edit((editBuilder) => {
