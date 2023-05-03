@@ -141,7 +141,10 @@ function parseStreamingChatCompletionResponses(
   return chatCompletionResponses;
 }
 
-async function draftCommitMessage() {
+async function draftCommitMessage(
+  progress: vscode.Progress<{ message?: string; increment?: number }>,
+  token: vscode.CancellationToken
+) {
   const diff = await getDiff();
   if (diff === "") {
     vscode.window.showInformationMessage("No changes to commit");
@@ -165,6 +168,7 @@ async function draftCommitMessage() {
 
   const docEditor = await createCommitMessageDocument();
 
+  progress.report({ message: "Connecting to OpenAI API..." });
   const reader = await fetchChatCompletionResponses(apiConfig, diff);
 
   if (!reader) {
@@ -173,6 +177,10 @@ async function draftCommitMessage() {
   }
 
   for await (const chunk of reader) {
+    if (token.isCancellationRequested) {
+      break;
+    }
+
     const chatCompletionResponses = parseStreamingChatCompletionResponses(
       chunk.toString()
     );
@@ -184,14 +192,35 @@ async function draftCommitMessage() {
       }
 
       appendToLastLine(docEditor, word);
+
+      progress.report({ message: "Generating commit message..." });
     }
   }
+}
+
+async function draftCommitMessageWithProgress() {
+  vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Drafting commit message",
+      cancellable: true,
+    },
+    (progress, token) => {
+      token.onCancellationRequested(() => {
+        console.log("User canceled the long running operation");
+      });
+
+      return new Promise((resolve, reject) => {
+        draftCommitMessage(progress, token).then(resolve).catch(reject);
+      });
+    }
+  );
 }
 
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand(
     "commitcomposer.draftCommitMessage",
-    draftCommitMessage
+    draftCommitMessageWithProgress
   );
 
   context.subscriptions.push(disposable);
