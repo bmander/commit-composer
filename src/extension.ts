@@ -270,18 +270,17 @@ async function copyAllAndClose() {
 
     await vscode.env.clipboard.writeText(text);
 
-    // Close the editor
     await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
   }
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  let disposable = vscode.commands.registerCommand(
-    "commitcomposer.draftCommitMessage",
-    draftCommitMessageWithProgress
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "commitcomposer.draftCommitMessage",
+      draftCommitMessageWithProgress
+    )
   );
-
-  context.subscriptions.push(disposable);
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
@@ -298,5 +297,4 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}
