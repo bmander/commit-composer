@@ -141,6 +141,11 @@ function parseStreamingChatCompletionResponses(
 
 async function draftCommitMessage() {
   const diff = await getDiff();
+  if (diff === "") {
+    vscode.window.showInformationMessage("No changes to commit");
+    return;
+  }
+
   if (!diff) {
     vscode.window.showErrorMessage(
       `Current working directory is not a git repository`
