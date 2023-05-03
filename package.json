@@ -41,6 +41,11 @@
         "extensions": [".commitmsg"]
       }
     ],
+    "configurationDefaults": {
+      "[commitmsg]": {
+        "editor.rulers": [50, 74]
+      }
+    },
     "configuration": [
       {
         "title": "Commit Composer",
