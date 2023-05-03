@@ -139,9 +139,11 @@ function parseStreamingChatCompletionResponses(
   return chatCompletionResponses;
 }
 
-async function draftCommitMessage(
+async function streamCommandIntoEditor(
   progress: vscode.Progress<{ message?: string; increment?: number }>,
-  token: vscode.CancellationToken
+  token: vscode.CancellationToken,
+  docEditor: vscode.TextEditor,
+  command: (diff: string) => string
 ) {
   progress.report({ message: "Getting diff..." });
   const diff = await getDiff();
@@ -166,18 +168,15 @@ async function draftCommitMessage(
     return;
   }
 
-  const docEditor = await createCommitMessageDocument();
-
   progress.report({ message: "Connecting to OpenAI API..." });
-  const command: string = `Please draft a commit message for the following diff:\n\n${diff}\n\n`;
-  const reader = await fetchChatCompletionResponses(apiConfig, command);
+  const reader = await fetchChatCompletionResponses(apiConfig, command(diff));
 
   if (!reader) {
     vscode.window.showErrorMessage(`Error getting response body`);
     return;
   }
 
-  progress.report({ message: "Generating commit message..." });
+  progress.report({ message: "Generating response..." });
   for await (const chunk of reader) {
     if (token.isCancellationRequested) {
       break;
@@ -198,6 +197,41 @@ async function draftCommitMessage(
   }
 }
 
+async function draftCommitMessage(
+  progress: vscode.Progress<{ message?: string; increment?: number }>,
+  token: vscode.CancellationToken
+) {
+  const docEditor = await createCommitMessageDocument();
+  const command = (diff: string) =>
+    `Please draft a commit message for the following diff:\n\n${diff}\n\n`;
+
+  await streamCommandIntoEditor(progress, token, docEditor, command);
+}
+
+async function draftCommitBodyUsingTitle(
+  progress: vscode.Progress<{ message?: string; increment?: number }>,
+  token: vscode.CancellationToken
+) {
+  const docEditor = vscode.window.activeTextEditor;
+  if (!docEditor) {
+    vscode.window.showErrorMessage(`Error getting active text editor`);
+    return;
+  }
+
+  const title = docEditor.document.lineAt(0).text;
+  const command = (
+    diff: string
+  ) => `Please draft the body of a commit message for the 
+  following title and diff.
+  
+  TITLE: "${title}"
+  
+  DIFF:
+  
+  ${diff}`;
+  await streamCommandIntoEditor(progress, token, docEditor, command);
+}
+
 async function draftCommitMessageWithProgress() {
   vscode.window.withProgress(
     {
@@ -208,6 +242,21 @@ async function draftCommitMessageWithProgress() {
     (progress, token) => {
       return new Promise((resolve, reject) => {
         draftCommitMessage(progress, token).then(resolve).catch(reject);
+      });
+    }
+  );
+}
+
+async function draftCommitBodyUsingTitleWithProgress() {
+  vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: "Drafting commit body",
+      cancellable: true,
+    },
+    (progress, token) => {
+      return new Promise((resolve, reject) => {
+        draftCommitBodyUsingTitle(progress, token).then(resolve).catch(reject);
       });
     }
   );
@@ -233,6 +282,13 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(disposable);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "commitcomposer.draftCommitBodyUsingTitle",
+      draftCommitBodyUsingTitleWithProgress
+    )
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand(

@@ -22,12 +22,20 @@
         "title": "Draft Commit Message"
       },
       {
+        "command": "commitcomposer.draftCommitBodyUsingTitle",
+        "title": "Draft Commit Body Using Title"
+      },
+      {
         "command": "commitcomposer.copyAllAndClose",
         "title": "Copy All and Close"
       }
     ],
     "menus": {
       "editor/context": [
+        {
+          "command": "commitcomposer.draftCommitBodyUsingTitle",
+          "when": "resourceLangId == commitmsg"
+        },
         {
           "command": "commitcomposer.copyAllAndClose",
           "when": "resourceLangId == commitmsg"
