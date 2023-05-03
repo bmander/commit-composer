@@ -6,6 +6,7 @@ Commit Composer is a Visual Studio Code extension that helps you write better co
 
 - Adds "Draft Commit Message" command to the command palette, which opens up a new editor window and uses the OpenAI API to convert the git diff to a commit message.
 - The commit composition editor has a context menu item "Copy All And Close" which copies the commit message to the clipboard and closes the editor window. The commit message body is wrapped at 74 characters before it is copied into the clipboard, ready to be pasted into the commit message editor.
+- Sometimes the first draft AI-generated scommit message misses the point. When that happens, you can replace the title in the commit message editor and run "Draft Commit Body Using Title" from the context menu. The new body will incorporate information from both the diff and the title.
 
 ## Requirements
 
