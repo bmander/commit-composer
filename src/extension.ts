@@ -145,6 +145,7 @@ async function draftCommitMessage(
   progress: vscode.Progress<{ message?: string; increment?: number }>,
   token: vscode.CancellationToken
 ) {
+  progress.report({ message: "Getting diff..." });
   const diff = await getDiff();
   if (diff === "") {
     vscode.window.showInformationMessage("No changes to commit");
@@ -158,6 +159,7 @@ async function draftCommitMessage(
     return;
   }
 
+  progress.report({ message: "Getting API config..." });
   let apiConfig: { openaiApiKey: string; modelName: string };
   try {
     apiConfig = getApiConfig();
@@ -176,6 +178,7 @@ async function draftCommitMessage(
     return;
   }
 
+  progress.report({ message: "Generating commit message..." });
   for await (const chunk of reader) {
     if (token.isCancellationRequested) {
       break;
@@ -192,8 +195,6 @@ async function draftCommitMessage(
       }
 
       appendToLastLine(docEditor, word);
-
-      progress.report({ message: "Generating commit message..." });
     }
   }
 }
