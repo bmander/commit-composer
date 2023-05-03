@@ -2,7 +2,7 @@
   "name": "commitcomposer",
   "displayName": "CommitComposer",
   "description": "Automatically draft git commit messages using AI.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/bmander/commit-composer.git"
@@ -11,7 +11,7 @@
     "vscode": "^1.77.0"
   },
   "categories": [
-    "Other"
+    "SCM Providers"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
