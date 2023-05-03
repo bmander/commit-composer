@@ -37,13 +37,23 @@
     "languages": [
       {
         "id": "commitmsg",
-        "aliases": ["Commit Message", "commitmsg"],
-        "extensions": [".commitmsg"]
+        "aliases": [
+          "Commit Message",
+          "commitmsg"
+        ],
+        "extensions": [
+          ".commitmsg"
+        ]
       }
     ],
     "configurationDefaults": {
       "[commitmsg]": {
-        "editor.rulers": [50, 74]
+        "editor.rulers": [
+          50,
+          74
+        ],
+        "editor.wordWrap": "wordWrapColumn",
+        "editor.wordWrapColumn": 74
       }
     },
     "configuration": [
@@ -102,6 +112,7 @@
   "dependencies": {
     "node-fetch": "^3.3.1",
     "openai": "^3.2.1",
-    "simple-git": "^3.18.0"
+    "simple-git": "^3.18.0",
+    "wrap-ansi": "^8.1.0"
   }
 }

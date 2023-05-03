@@ -2,6 +2,7 @@
 import * as vscode from "vscode";
 import { simpleGit, SimpleGit } from "simple-git";
 import fetch from "node-fetch";
+import wrapAnsi from "wrap-ansi";
 
 const API_URL = "https://api.openai.com/v1/chat/completions";
 const SYSTEM_MESSAGE = `You are a commit message generator. You are given a 
@@ -44,10 +45,6 @@ function appendToLastLine(editor: vscode.TextEditor, text: string) {
   const lastLine = doc.lineAt(doc.lineCount - 1);
 
   const end = new vscode.Position(doc.lineCount - 1, lastLine.text.length);
-
-  if (lastLine.text.length + text.length > GIT_BODY_MAX_LENGTH) {
-    text = "\n" + text.trimStart();
-  }
 
   editor.edit((editBuilder) => {
     editBuilder.insert(end, text);
@@ -218,7 +215,7 @@ async function copyAllAndClose() {
   const editor = vscode.window.activeTextEditor;
   if (editor) {
     const doc = editor.document;
-    const text = doc.getText();
+    const text = wrapAnsi(doc.getText(), 72);
 
     await vscode.env.clipboard.writeText(text);
 
