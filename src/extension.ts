@@ -206,10 +206,6 @@ async function draftCommitMessageWithProgress() {
       cancellable: true,
     },
     (progress, token) => {
-      token.onCancellationRequested(() => {
-        console.log("User canceled the long running operation");
-      });
-
       return new Promise((resolve, reject) => {
         draftCommitMessage(progress, token).then(resolve).catch(reject);
       });
