@@ -9,9 +9,11 @@ diff of changes to a git repository. You must generate a commit message that
 describes the changes. The commit message must contain a subject line and a body
 if the commit is not trivial. The subject line should be 50 characters or 
 less, and begin with an imperative statement as if giving a command. The body 
-should contain a description of the changes. Neither the subject line nor the
-body should be prefixed with the name of the section; instead the text of the
-commit should be ready to submit to git as-is.`;
+should contain a description of the changes, focusing on "what" and "why"
+instead of "how". Neither the subject line nor the body should be prefixed with 
+the name of the section like "Title:" or "Body:". The commit message should 
+comply with the software industry best practices as explained in 
+https://chris.beams.io/posts/git-commit/.`;
 const GIT_BODY_MAX_LENGTH = 72;
 
 interface Message {
