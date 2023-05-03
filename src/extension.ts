@@ -4,10 +4,11 @@ import { simpleGit, SimpleGit } from "simple-git";
 import fetch from "node-fetch";
 import wrapAnsi from "wrap-ansi";
 
-const API_URL = "https://api.openai.com/v1/chat/completions";
-const SYSTEM_MESSAGE = `You are a commit message generator. You are given a 
-diff of changes to a git repository. You must generate a commit message that 
-describes the changes. The commit message must contain a subject line and a body
+const CHAT_COMPLETION_API_URL = "https://api.openai.com/v1/chat/completions";
+const SYSTEM_MESSAGE = `You are a commit message generator. You will be given a
+description of the task, and then given a diff of changes to a git repository. 
+Depending on the task, you will be asked to generate a git commit title, a commit
+body, or both. The commit message must contain a subject line and a body
 if the commit is not trivial. The subject line should be 50 characters or 
 less, and begin with an imperative statement as if giving a command. The body 
 should contain a description of the changes, focusing on "what" and "why"
@@ -95,10 +96,10 @@ async function createCommitMessageDocument(): Promise<vscode.TextEditor> {
 
 async function fetchChatCompletionResponses(
   apiConfig: { openaiApiKey: string; modelName: string },
-  diff: string
+  command: string
 ): Promise<NodeJS.ReadableStream | undefined> {
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(CHAT_COMPLETION_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -108,7 +109,7 @@ async function fetchChatCompletionResponses(
         model: apiConfig.modelName,
         messages: [
           { role: "system", content: SYSTEM_MESSAGE },
-          { role: "user", content: diff },
+          { role: "user", content: command },
         ],
         stream: true,
       }),
@@ -168,7 +169,8 @@ async function draftCommitMessage(
   const docEditor = await createCommitMessageDocument();
 
   progress.report({ message: "Connecting to OpenAI API..." });
-  const reader = await fetchChatCompletionResponses(apiConfig, diff);
+  const command: string = `Please draft a commit message for the following diff:\n\n${diff}\n\n`;
+  const reader = await fetchChatCompletionResponses(apiConfig, command);
 
   if (!reader) {
     vscode.window.showErrorMessage(`Error getting response body`);
