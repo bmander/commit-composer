@@ -87,7 +87,7 @@ function getApiConfig(): {
 async function createCommitMessageDocument(): Promise<vscode.TextEditor> {
   const commitMessageDoc = await vscode.workspace.openTextDocument({
     content: "",
-    language: "plaintext",
+    language: "commitmsg",
   });
   return vscode.window.showTextDocument(commitMessageDoc, {
     viewColumn: vscode.ViewColumn.Beside,
@@ -213,6 +213,19 @@ async function draftCommitMessageWithProgress() {
   );
 }
 
+async function copyAllAndClose() {
+  const editor = vscode.window.activeTextEditor;
+  if (editor) {
+    const doc = editor.document;
+    const text = doc.getText();
+
+    await vscode.env.clipboard.writeText(text);
+
+    // Close the editor
+    await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.commands.registerCommand(
     "commitcomposer.draftCommitMessage",
@@ -220,6 +233,13 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(disposable);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "commitcomposer.copyAllAndClose",
+      copyAllAndClose
+    )
+  );
 }
 
 // This method is called when your extension is deactivated

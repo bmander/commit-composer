@@ -20,6 +20,25 @@
       {
         "command": "commitcomposer.draftCommitMessage",
         "title": "Draft Commit Message"
+      },
+      {
+        "command": "commitcomposer.copyAllAndClose",
+        "title": "Copy All and Close"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "commitcomposer.copyAllAndClose",
+          "when": "resourceLangId == commitmsg"
+        }
+      ]
+    },
+    "languages": [
+      {
+        "id": "commitmsg",
+        "aliases": ["Commit Message", "commitmsg"],
+        "extensions": [".commitmsg"]
       }
     ],
     "configuration": [
