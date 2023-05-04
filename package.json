@@ -2,13 +2,13 @@
   "name": "commitcomposer",
   "displayName": "CommitComposer",
   "description": "Automatically draft git commit messages using AI.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "bmander",
   "repository": {
     "type": "git",
     "url": "https://github.com/bmander/commit-composer.git"
   },
-  "icon": "./assets/logo.png",
+  "icon": "assets/logo.png",
   "engines": {
     "vscode": "^1.77.0"
   },
